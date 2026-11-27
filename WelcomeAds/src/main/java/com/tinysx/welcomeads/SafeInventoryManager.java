@@ -68,8 +68,7 @@ public final class SafeInventoryManager {
         ItemStack[] savedContents = INVENTORY_CACHE.remove(uuid);
 
         if (savedContents != null) {
-            player.getInventory().setContents(savedContents);
-            player.updateInventory();
+            restoreContents(player, savedContents);
         }
 
         // Delete emergency backup once restored
@@ -80,12 +79,25 @@ public final class SafeInventoryManager {
         for (Map.Entry<UUID, ItemStack[]> entry : INVENTORY_CACHE.entrySet()) {
             Player player = Bukkit.getPlayer(entry.getKey());
             if (player != null && player.isOnline()) {
-                player.getInventory().setContents(entry.getValue());
-                player.updateInventory();
+                restoreContents(player, entry.getValue());
             }
             deleteEmergencyBackup(entry.getKey());
         }
         INVENTORY_CACHE.clear();
+    }
+
+    // gives back items received while the welcome screen was open
+    private static void restoreContents(Player player, ItemStack[] savedContents) {
+        ItemStack[] newItems = player.getInventory().getContents();
+        player.getInventory().setContents(savedContents);
+        for (ItemStack item : newItems) {
+            if (item != null && !item.getType().isAir()) {
+                for (ItemStack leftover : player.getInventory().addItem(item.clone()).values()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+                }
+            }
+        }
+        player.updateInventory();
     }
 
     public static void checkAndRestoreCrashBackup(Player player) {
